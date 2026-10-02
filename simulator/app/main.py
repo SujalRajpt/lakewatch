@@ -31,7 +31,7 @@ from .behaviors import (
 
 app = FastAPI(
     title="LakeWatch Simulator Control API",
-    description=("Control and inspect the LakeWatch sensor simulator."),
+    description="Control and inspect the LakeWatch sensor simulator.",
 )
 
 
@@ -85,6 +85,33 @@ class BehaviorControlRequest(BaseModel):
 
     anomaly_rate: float | None = Field(
         default=None, ge=0, le=1, description="Probability between 0 and 1"
+    )
+
+
+class ConcurrencyControlRequest(BaseModel):
+    enabled: bool | None = None
+
+    mode: int | None = Field(
+        default=None, ge=1, le=10000, description="Number of requests sent concurrently"
+    )
+
+    interval: float | None = Field(
+        default=None, ge=0.1, description="Seconds between concurrent batches"
+    )
+
+
+class BurstControlRequest(BaseModel):
+    enabled: bool | None = None
+
+    size: int | None = Field(
+        default=None,
+        ge=1,
+        le=100000,
+        description="Number of HTTP requests in each burst",
+    )
+
+    interval: float | None = Field(
+        default=None, ge=0.1, description="Seconds between bursts"
     )
 
 
@@ -192,7 +219,6 @@ def get_current_reading(lake_id: str):
 
             event_timestamp = datetime.now(timezone.utc)
 
-            # Don't modify the real sensor state.
             preview_state = copy.deepcopy(state)
 
             reading = generate_reading(preview_state, event_timestamp, stress_level)
@@ -217,28 +243,28 @@ def get_behavior_config():
 
     return {
         "missing_readings": {
-            "enabled": (config.missing_readings_enabled),
-            "rate": (config.missing_reading_rate),
+            "enabled": config.missing_readings_enabled,
+            "rate": config.missing_reading_rate,
         },
         "duplicate_readings": {
-            "enabled": (config.duplicate_readings_enabled),
-            "rate": (config.duplicate_reading_rate),
+            "enabled": config.duplicate_readings_enabled,
+            "rate": config.duplicate_reading_rate,
         },
         "malformed_payloads": {
-            "enabled": (config.malformed_payloads_enabled),
-            "rate": (config.malformed_payload_rate),
+            "enabled": config.malformed_payloads_enabled,
+            "rate": config.malformed_payload_rate,
         },
         "out_of_order": {
-            "enabled": (config.out_of_order_enabled),
-            "rate": (config.out_of_order_rate),
+            "enabled": config.out_of_order_enabled,
+            "rate": config.out_of_order_rate,
         },
         "delayed_events": {
-            "enabled": (config.delayed_events_enabled),
-            "rate": (config.delayed_event_rate),
+            "enabled": config.delayed_events_enabled,
+            "rate": config.delayed_event_rate,
         },
         "anomalies": {
-            "enabled": (config.anomalies_enabled),
-            "rate": (config.anomaly_rate),
+            "enabled": config.anomalies_enabled,
+            "rate": config.anomaly_rate,
         },
     }
 
@@ -291,7 +317,7 @@ def set_behavior_config(control: BehaviorControlRequest):
         config.anomaly_rate = control.anomaly_rate
 
     return {
-        "message": ("Behavior configuration updated"),
+        "message": "Behavior configuration updated",
         "config": {
             "missing_readings_enabled": config.missing_readings_enabled,
             "duplicate_readings_enabled": config.duplicate_readings_enabled,
@@ -305,6 +331,80 @@ def set_behavior_config(control: BehaviorControlRequest):
             "out_of_order_rate": config.out_of_order_rate,
             "delayed_event_rate": config.delayed_event_rate,
             "anomaly_rate": config.anomaly_rate,
+        },
+    }
+
+
+# --------------------------------------------------
+# CONCURRENCY CONTROL
+# --------------------------------------------------
+
+
+@app.get("/simulation/concurrency")
+def get_concurrency_config():
+
+    return {
+        "enabled": config.concurrency_enabled,
+        "mode": config.concurrency_mode,
+        "interval": config.concurrency_interval,
+    }
+
+
+@app.post("/simulation/concurrency/control")
+def set_concurrency_config(control: ConcurrencyControlRequest):
+
+    if control.enabled is not None:
+        config.concurrency_enabled = control.enabled
+
+    if control.mode is not None:
+        config.concurrency_mode = control.mode
+
+    if control.interval is not None:
+        config.concurrency_interval = control.interval
+
+    return {
+        "message": "Concurrency configuration updated",
+        "config": {
+            "enabled": config.concurrency_enabled,
+            "mode": config.concurrency_mode,
+            "interval": config.concurrency_interval,
+        },
+    }
+
+
+# --------------------------------------------------
+# BURST CONTROL
+# --------------------------------------------------
+
+
+@app.get("/simulation/burst")
+def get_burst_config():
+
+    return {
+        "enabled": config.burst_enabled,
+        "size": config.burst_size,
+        "interval": config.burst_interval,
+    }
+
+
+@app.post("/simulation/burst/control")
+def set_burst_config(control: BurstControlRequest):
+
+    if control.enabled is not None:
+        config.burst_enabled = control.enabled
+
+    if control.size is not None:
+        config.burst_size = control.size
+
+    if control.interval is not None:
+        config.burst_interval = control.interval
+
+    return {
+        "message": "Burst configuration updated",
+        "config": {
+            "enabled": config.burst_enabled,
+            "size": config.burst_size,
+            "interval": config.burst_interval,
         },
     }
 
@@ -331,6 +431,38 @@ async def send_reading(client, payload):
 
 
 # --------------------------------------------------
+# CONCURRENT BATCH
+# --------------------------------------------------
+
+
+async def send_concurrent_batch(client, payloads):
+
+    tasks = [send_reading(client, payload) for payload in payloads]
+
+    await asyncio.gather(*tasks)
+
+
+# --------------------------------------------------
+# CREATE BURST PAYLOADS
+# --------------------------------------------------
+
+
+def create_burst_payloads(payloads, burst_size):
+
+    if not payloads:
+        return []
+
+    burst_payloads = []
+
+    for i in range(burst_size):
+        source_payload = payloads[i % len(payloads)]
+
+        burst_payloads.append(copy.deepcopy(source_payload))
+
+    return burst_payloads
+
+
+# --------------------------------------------------
 # SIMULATION LOOP
 # --------------------------------------------------
 
@@ -347,11 +479,17 @@ async def simulation_loop():
 
     print(f"Sending to: {config.api_url}")
 
-    print(f"Interval: {interval:.2f} seconds")
+    print(f"Normal interval: {interval:.2f} seconds")
 
     async with httpx.AsyncClient() as client:
         while True:
             event_timestamp = datetime.now(timezone.utc)
+
+            # ==========================================
+            # GENERATE NORMAL SENSOR READINGS
+            # ==========================================
+
+            payloads = []
 
             for state in sensor_states:
                 # ----------------------------------
@@ -425,24 +563,72 @@ async def simulation_loop():
 
                     await asyncio.sleep(2)
 
-                # ----------------------------------
-                # SEND
-                # ----------------------------------
+                payloads.append(payload)
 
-                await send_reading(client, payload)
+            # ==========================================
+            # BURST MODE
+            # ==========================================
 
-                # ----------------------------------
-                # DUPLICATE
-                # ----------------------------------
+            if config.burst_enabled:
+                burst_payloads = create_burst_payloads(payloads, config.burst_size)
 
-                if should_duplicate_reading(config):
-                    print(
-                        f"[DUPLICATE] "
-                        f"{state['sensor_id']} "
-                        f"seq={payload['sequence_number']}"
-                    )
+                print(f"[BURST] Sending {len(burst_payloads)} requests concurrently")
 
+                await send_concurrent_batch(client, burst_payloads)
+
+                print(f"[BURST COMPLETE] {len(burst_payloads)} requests sent")
+
+                await asyncio.sleep(config.burst_interval)
+
+                continue
+
+            # ==========================================
+            # CONCURRENCY MODE
+            # ==========================================
+
+            if config.concurrency_enabled:
+                batch_size = config.concurrency_mode
+
+                print(
+                    f"[CONCURRENCY] "
+                    f"Sending {len(payloads)} readings "
+                    f"in batches of {batch_size}"
+                )
+
+                for i in range(0, len(payloads), batch_size):
+                    batch = payloads[i : i + batch_size]
+
+                    print(f"[BATCH] {i + 1}-{i + len(batch)} ({len(batch)} requests)")
+
+                    await send_concurrent_batch(client, batch)
+
+                    if i + batch_size < len(payloads):
+                        await asyncio.sleep(config.concurrency_interval)
+
+            # ==========================================
+            # NORMAL MODE
+            # ==========================================
+
+            else:
+                for payload in payloads:
                     await send_reading(client, payload)
+
+                    # ----------------------------------
+                    # DUPLICATE
+                    # ----------------------------------
+
+                    if should_duplicate_reading(config):
+                        print(
+                            f"[DUPLICATE] "
+                            f"{payload['sensor_id']} "
+                            f"seq={payload['sequence_number']}"
+                        )
+
+                        await send_reading(client, payload)
+
+            # ==========================================
+            # NEXT SIMULATION CYCLE
+            # ==========================================
 
             await asyncio.sleep(interval)
 

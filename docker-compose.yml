@@ -44,6 +44,7 @@ services:
       context: ./simulator
 
     container_name: lakewatch-simulator
+
     ports:
       - "9000:9000"
 
@@ -53,6 +54,18 @@ services:
     depends_on:
       backend:
         condition: service_started
+
+
+  adminer:
+    image: adminer:latest
+    container_name: lakewatch-adminer
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 
 volumes:
