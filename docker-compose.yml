@@ -1,0 +1,59 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: lakewatch-postgres
+
+    environment:
+      POSTGRES_DB: lakewatch
+      POSTGRES_USER: lakewatch
+      POSTGRES_PASSWORD: lakewatch_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lakewatch -d lakewatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: lakewatch-backend
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  simulator:
+    build:
+      context: ./simulator
+
+    container_name: lakewatch-simulator
+    ports:
+      - "9000:9000"
+
+    env_file:
+      - .env
+
+    depends_on:
+      backend:
+        condition: service_started
+
+
+volumes:
+  postgres_data:
