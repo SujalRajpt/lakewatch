@@ -1,30 +1,52 @@
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine import URL
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from app.models import Base
 
 
-DATABASE_URL = (
-    f"postgresql+psycopg://"
-    f"{os.getenv('POSTGRES_USER')}:"
-    f"{os.getenv('POSTGRES_PASSWORD')}@"
-    f"{os.getenv('POSTGRES_HOST')}:"
-    f"{os.getenv('POSTGRES_PORT')}/"
-    f"{os.getenv('POSTGRES_DB')}"
+DATABASE_URL = URL.create(
+    drivername="postgresql+psycopg",
+    username=os.environ["POSTGRES_USER"],
+    password=os.environ["POSTGRES_PASSWORD"],
+    host=os.environ["POSTGRES_HOST"],
+    port=int(os.environ["POSTGRES_PORT"]),
+    database=os.environ["POSTGRES_DB"],
+)
+
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+)
+
+SessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
 
 
-engine = create_engine(DATABASE_URL)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
+async def get_db():
+    async with SessionLocal() as session:
+        yield session
 
 
-def get_db():
-    db = SessionLocal()
+async def create_tables():
+    # Import models so their tables are registered in Base.metadata.
+    from app import models  # noqa: F401
 
-    try:
-        yield db
-    finally:
-        db.close()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def initialize_database():
+    await create_tables()
+
+    from app.database.seed import seed_database
+
+    await seed_database()

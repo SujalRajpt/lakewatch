@@ -8,6 +8,14 @@ __pycache__/
 venv/
 env/
 
+# Test / Backup files
+test*
+Test*
+TEST*
+backup*
+Backup*
+BACKUP*
+
 # IDE
 .vscode/
 .idea/

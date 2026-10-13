@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database.connection import Base
+from app.models.base import Base
 
 
 class Lake(Base):
@@ -18,5 +18,7 @@ class Lake(Base):
     location: Mapped[str] = mapped_column(String, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )

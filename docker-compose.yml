@@ -1,5 +1,9 @@
 services:
 
+  # ==========================================================
+  # DATABASE
+  # ==========================================================
+
   postgres:
     image: postgres:17
     container_name: lakewatch-postgres
@@ -22,6 +26,10 @@ services:
       retries: 10
 
 
+  # ==========================================================
+  # FASTAPI BACKEND
+  # ==========================================================
+
   backend:
     build:
       context: ./backend
@@ -38,6 +46,10 @@ services:
       postgres:
         condition: service_healthy
 
+
+  # ==========================================================
+  # SENSOR SIMULATOR
+  # ==========================================================
 
   simulator:
     build:
@@ -56,6 +68,30 @@ services:
         condition: service_started
 
 
+  # ==========================================================
+  # SIMULATOR CONTROL UI
+  # ==========================================================
+
+  simulator-ui:
+    build:
+      context: ./simulator-ui
+
+    container_name: lakewatch-simulator-ui
+
+    ports:
+      - "8501:8501"
+
+    environment:
+      SIMULATOR_URL: http://simulator:9000
+
+    depends_on:
+      simulator:
+        condition: service_started
+
+  # ==========================================================
+  # ADMINER
+  # ==========================================================
+
   adminer:
     image: adminer:latest
     container_name: lakewatch-adminer
@@ -66,7 +102,38 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        
 
+
+  # ==========================================================
+  # MAIN FRONTEND
+  # ==========================================================
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: lakewatch-frontend
+
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+
+    depends_on:
+      backend:
+        condition: service_started
+
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
 
 volumes:
   postgres_data:

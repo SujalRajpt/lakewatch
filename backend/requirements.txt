@@ -1,4 +1,5 @@
 fastapi
-uvicorn[standard]
-sqlalchemy
+uvicorn
+SQLAlchemy[asyncio]
 psycopg[binary]
+fastapi-pagination

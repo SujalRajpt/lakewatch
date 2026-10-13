@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database.connection import Base
+from app.models.base import Base
 
 
 class Sensor(Base):
@@ -14,7 +14,9 @@ class Sensor(Base):
     sensor_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
 
     lake_id: Mapped[str] = mapped_column(
-        String, ForeignKey("lakes.lake_id"), nullable=False
+        String,
+        ForeignKey("lakes.lake_id"),
+        nullable=False,
     )
 
     model: Mapped[str] = mapped_column(String, nullable=False)
@@ -26,5 +28,7 @@ class Sensor(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
