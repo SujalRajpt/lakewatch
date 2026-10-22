@@ -250,6 +250,48 @@
 
       restart: "no"
 
+
+    
+  # ==========================================================
+  # AIRFLOW - DATA LAKE ORCHESTRATION
+  # ==========================================================
+    airflow:
+      build:
+        context: .
+        dockerfile: airflow/Dockerfile
+
+      container_name: lakewatch-airflow
+
+      command: standalone
+
+      ports:
+        - "8081:8080"
+
+      env_file:
+        - .env
+
+      environment:
+        AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+        AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+        AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+        DATA_LAKE_RAW_DIR: /data-lake/raw
+
+      volumes:
+        - ./airflow/dags:/opt/airflow/dags
+        - ./airflow/logs:/opt/airflow/logs
+        - ./airflow/config:/opt/airflow/config
+        - ./airflow/plugins:/opt/airflow/plugins
+        - ./jobs:/jobs:ro
+        - ./data-lake:/data-lake
+
+      depends_on:
+        postgres:
+          condition: service_healthy
+
+      restart: "no"
+
+
+
   # ============================================================
   # VOLUMES
   # ============================================================
