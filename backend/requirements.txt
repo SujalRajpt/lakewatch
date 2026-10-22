@@ -3,3 +3,5 @@ uvicorn
 SQLAlchemy[asyncio]
 psycopg[binary]
 fastapi-pagination
+aiokafka
+pyarrow

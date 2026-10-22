@@ -1,0 +1,115 @@
+
+services:
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lakewatch-spark-master
+    hostname: spark-master
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_MASTER_HOST: spark-master
+      SPARK_MASTER_WEBUI_HOST: 0.0.0.0
+      SPARK_PUBLIC_DNS: localhost
+      SPARK_MASTER_PORT: "7077"
+      SPARK_MASTER_WEBUI_PORT: "8080"
+    ports:
+      - "7078:7077"
+      - "8085:8080"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    networks:
+      - lakewatch-spark
+    restart: unless-stopped
+
+  spark-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lakewatch-spark-worker-1
+    hostname: spark-worker-1
+    depends_on:
+      - spark-master
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_WEBUI_PORT: "8081"
+      SPARK_PUBLIC_DNS: localhost
+      SPARK_WORKER_CORES: "1"
+      SPARK_WORKER_MEMORY: "1g"
+    ports:
+      - "8083:8081"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    networks:
+      - lakewatch-spark
+    restart: unless-stopped
+
+  spark-worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lakewatch-spark-worker-2
+    hostname: spark-worker-2
+    depends_on:
+      - spark-master
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_WEBUI_PORT: "8081"
+      SPARK_PUBLIC_DNS: localhost
+      SPARK_WORKER_CORES: "1"
+      SPARK_WORKER_MEMORY: "1g"
+    ports:
+      - "8084:8081"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    networks:
+      - lakewatch-spark
+    restart: unless-stopped
+
+
+  spark-job-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lakewatch-spark-job-runner
+    hostname: spark-job-runner
+    command:
+      - python3
+      - -m
+      - uvicorn
+      - job_runner:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9002"
+    ports:
+      - "9002:9002"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace/spark
+    depends_on:
+      - spark-master
+    networks:
+      - lakewatch-spark
+    restart: unless-stopped
+
+
+
+networks:
+  lakewatch-spark:
+    name: lakewatch-spark-network
+    driver: bridge
