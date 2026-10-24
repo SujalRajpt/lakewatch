@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lakewatch-app-config
+  namespace: lakewatch
+data:
+  POSTGRES_DB: "lakewatch"
+  POSTGRES_USER: "lakewatch"
+  KAFKA_TOPIC: "sensor-readings"
+  KAFKA_PARTITIONS: "6"
+  DATABASE_HOST: "postgres"
+  DATABASE_PORT: "5432"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
