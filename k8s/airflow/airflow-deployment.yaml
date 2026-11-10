@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow
+  namespace: lakewatch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow
+  template:
+    metadata:
+      labels:
+        app: airflow
+    spec:
+      initContainers:
+        - name: prepare-data-lake-permissions
+          image: lakewatch-airflow:dev
+          imagePullPolicy: IfNotPresent
+          command:
+            - bash
+            - -c
+            - |
+              chown 50000:0 /data-lake/raw
+              chmod 775 /data-lake/raw
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: data-lake
+              mountPath: /data-lake
+      containers:
+        - name: airflow
+          image: lakewatch-airflow:dev
+          imagePullPolicy: IfNotPresent
+          command:
+            - airflow
+          args:
+            - standalone
+          ports:
+            - name: web
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+          env:
+            - name: AIRFLOW_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-db-credentials
+                  key: AIRFLOW_DB_NAME
+            - name: AIRFLOW_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-db-credentials
+                  key: AIRFLOW_DB_USER
+            - name: AIRFLOW_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-db-credentials
+                  key: AIRFLOW_DB_PASSWORD
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-metadata-url
+                  key: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          volumeMounts:
+            - name: data-lake
+              mountPath: /data-lake
+      volumes:
+        - name: data-lake
+          persistentVolumeClaim:
+            claimName: data-lake

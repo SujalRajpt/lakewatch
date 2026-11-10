@@ -1,4 +1,4 @@
-
+import os
 import json
 import subprocess
 
@@ -22,6 +22,14 @@ def run_aggregation(request: AggregateRequest):
         "/opt/spark/bin/spark-submit",
         "--master",
         "spark://spark-master:7077",
+        "--conf",
+        "spark.driver.bindAddress=0.0.0.0",
+        "--conf",
+        f"spark.driver.host={os.environ['SPARK_DRIVER_HOST']}",
+        "--conf",
+        "spark.driver.port=37001",
+        "--conf",
+        "spark.blockManager.port=37002",
         "/workspace/jobs/data_lake/on_demand_aggregate.py",
         "--days",
         str(request.days),

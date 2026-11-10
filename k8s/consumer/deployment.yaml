@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reading-consumer
+  namespace: lakewatch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reading-consumer
+  template:
+    metadata:
+      labels:
+        app: reading-consumer
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: consumer
+          image: lakewatch-backend:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.reading_consumer"]
+          envFrom:
+            - configMapRef:
+                name: lakewatch-app-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

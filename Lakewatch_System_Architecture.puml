@@ -1,0 +1,159 @@
+
+@startuml Lakewatch_Architecture
+
+' =========================================================
+' LAKEWATCH — SYSTEM ARCHITECTURE
+' Landscape layout | Conceptual data-flow diagram
+' =========================================================
+
+!theme plain
+left to right direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 14
+skinparam linetype ortho
+skinparam nodesep 38
+skinparam ranksep 48
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.5
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam Padding 12
+
+skinparam package {
+    BorderColor #CBD5E1
+    FontColor #334155
+    FontStyle bold
+    BackgroundColor #F8FAFC
+}
+
+skinparam component {
+    BorderColor #94A3B8
+    FontColor #0F172A
+    BackgroundColor #FFFFFF
+}
+
+skinparam database {
+    BorderColor #D97706
+    FontColor #78350F
+    BackgroundColor #FFF7E6
+}
+
+skinparam queue {
+    BorderColor #7C3AED
+    FontColor #4C1D95
+    BackgroundColor #F3E8FF
+}
+
+skinparam note {
+    BackgroundColor #F8FAFC
+    BorderColor #CBD5E1
+    FontColor #475569
+}
+
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 10
+
+' -------------------- EXTERNAL SYSTEM --------------------
+
+rectangle "<b>External Sensor Simulator</b>\n\nGenerates sensor readings\nSends HTTP requests" as SIM #EAF2FF
+
+' -------------------- APPLICATION BOUNDARY ----------------
+
+package "<b>LAKEWATCH APPLICATION</b>" as APP #F8FAFC {
+
+    rectangle "<b>Ingestion &amp; API Layer</b>\n\nFastAPI\nReceive · Validate · Expose APIs" as API #DCFCE7
+
+    queue "<b>Event Streaming</b>\n\nApache Kafka\nBuffers and delivers events" as KAFKA
+
+    rectangle "<b>Reading Consumers</b>\n\nConsume events\nProcess and persist readings" as CONSUMER #F3E8FF
+
+    database "<b>Operational Database</b>\n\nPostgreSQL\nStructured readings\nOperational records" as DB
+
+    rectangle "<b>Workflow Orchestration</b>\n\nApache Airflow\nSchedule and coordinate exports" as AIRFLOW #DCFCE7
+
+    rectangle "<b>Analytics Request Service</b>\n\nSpark Job Runner API\nLaunches analytics jobs" as RUNNER #DCFCE7
+
+    rectangle "<b>Distributed Compute</b>\n\nSpark Master\nCoordinates execution" as MASTER #F3E8FF
+
+    rectangle "<b>Spark Workers</b>\n\nExecute distributed tasks" as WORKERS #F3E8FF
+
+    ' Keep distinct processing responsibilities
+    API -[hidden]down-> KAFKA
+    KAFKA -[hidden]down-> CONSUMER
+    CONSUMER -[hidden]right-> DB
+
+    AIRFLOW -[hidden]right-> RUNNER
+    RUNNER -[hidden]down-> MASTER
+    MASTER -[hidden]down-> WORKERS
+}
+
+' -------------------- SHARED ANALYTICAL STORAGE -----------
+
+folder "<b>Shared Parquet Storage</b>\n\n<b>Raw snapshots</b>\nExported source data\n\n<b>Processed output</b>\nAnalytical results" as LAKE #FFF1CC
+
+note bottom of LAKE
+  Shared storage is mounted
+  by the relevant workloads.
+  Raw and processed Parquet
+  datasets serve analytics.
+end note
+
+' -------------------- USER INTERFACE ----------------------
+
+rectangle "<b>Lakewatch UI</b>\n\nExplore lake data\nRequest supported operations\nView API and analytics results" as UI #EAF2FF
+
+actor "User" as USER
+
+' -------------------- INGESTION FLOW ----------------------
+
+SIM -[#2563EB,bold]-> API : HTTP POST\n/api/readings
+
+API -[#7C3AED,bold]-> KAFKA : Publish reading event
+
+KAFKA -[#7C3AED,bold]-> CONSUMER : Consume events
+
+CONSUMER -[#D97706,bold]-> DB : Persist readings
+
+' -------------------- EXPORT WORKFLOW --------------------
+
+AIRFLOW -[#D97706]-> DB : Read / export\nsource data
+
+AIRFLOW -[#D97706,bold]-> LAKE : Write Parquet snapshot
+
+' -------------------- SPARK ANALYTICS ---------------------
+
+UI -[#2563EB]-> API : HTTP API requests
+
+API -[#16A34A,bold]-> RUNNER : POST /run-aggregation
+
+RUNNER -[#7C3AED,bold]-> MASTER : spark-submit
+
+MASTER -[#7C3AED]-> WORKERS : Schedule tasks
+
+LAKE -[#D97706]-> WORKERS : Read raw Parquet
+
+WORKERS -[#D97706,bold]-> LAKE : Write processed Parquet
+
+' -------------------- USER-FACING RESULTS -----------------
+
+USER -[#2563EB]-> UI : Explore and request
+
+API -[#16A34A,dashed]-> UI : API responses
+
+RUNNER -[#16A34A,dashed]-> API : Job status / results
+
+' -------------------- LEGEND ------------------------------
+
+legend bottom
+  |= Color |= Meaning |
+  |<#EAF2FF> Blue | External systems and user-facing interfaces |
+  |<#DCFCE7> Green | Application and API services |
+  |<#F3E8FF> Purple | Event streaming and distributed processing |
+  |<#FFF1CC> Amber | Persistent and analytical storage |
+endlegend
+
+@enduml

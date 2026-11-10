@@ -8,8 +8,8 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 
-RAW_DIR = Path("/workspace/data-lake/raw")
-OUTPUT_DIR = Path("/workspace/data-lake/processed/on_demand")
+RAW_DIR = Path("/data-lake/raw")
+OUTPUT_DIR = Path("/data-lake/processed/on_demand")
 
 ALLOWED_COLUMNS = {
     "temperature",

@@ -4,11 +4,11 @@ from pyspark.sql import functions as F
 
 
 INPUT_PATH = (
-    "/workspace/data-lake/raw/"
-    "sensor_readings_20261020T145422Z.parquet"
+    "/data-lake/raw/"
+    "sensor_readings_20261028T131216Z.parquet"
 )
 
-OUTPUT_PATH = "/workspace/data-lake/processed/five_minute_summaries"
+OUTPUT_PATH = "/data-lake/processed/five_minute_summaries"
 
 REQUIRED_COLUMNS = [
     "lake_id",

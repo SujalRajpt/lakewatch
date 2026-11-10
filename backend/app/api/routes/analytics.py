@@ -220,8 +220,7 @@ ALLOWED_MEASUREMENTS = {
     "nitrate",
 }
 
-SPARK_RUNNER_URL = "http://host.docker.internal:9002/run-aggregation"
-
+SPARK_RUNNER_URL = "http://spark-job-runner:9002/run-aggregation"
 
 @router.post("/data-lake/spark-query")
 def run_spark_query(request: SparkQueryRequest):

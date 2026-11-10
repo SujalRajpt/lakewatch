@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: export-readings-manual
+  namespace: lakewatch
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: export-readings-manual
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: export
+          image: lakewatch-data-export:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: lakewatch-app-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: DATA_LAKE_RAW_DIR
+              value: /data-lake/raw
+          volumeMounts:
+            - name: data-lake
+              mountPath: /data-lake
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: data-lake
+          persistentVolumeClaim:
+            claimName: data-lake

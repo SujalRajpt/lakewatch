@@ -1,0 +1,67 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-job-runner
+  namespace: lakewatch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-job-runner
+  template:
+    metadata:
+      labels:
+        app: spark-job-runner
+    spec:
+      containers:
+        - name: job-runner
+          image: lakewatch-spark:3.5.0
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace/spark
+          command:
+            - python3
+            - -m
+            - uvicorn
+            - job_runner:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "9002"
+          env:
+            - name: SPARK_LOCAL_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SPARK_DRIVER_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: http
+              containerPort: 9002
+            - name: driver-rpc
+              containerPort: 37001
+            - name: block-manager
+              containerPort: 37002
+          volumeMounts:
+            - name: data-lake
+              mountPath: /data-lake
+      volumes:
+        - name: data-lake
+          persistentVolumeClaim:
+            claimName: data-lake
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-job-runner
+  namespace: lakewatch
+spec:
+  selector:
+    app: spark-job-runner
+  ports:
+    - name: http
+      port: 9002
+      targetPort: 9002
+  type: ClusterIP

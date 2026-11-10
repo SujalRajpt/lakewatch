@@ -8,6 +8,12 @@ __pycache__/
 venv/
 env/
 
+# Local development secrets
+k8s/**/secrets.yaml
+.env
+.env.*
+!.env.example
+
 # Test / Backup files
 test*
 Test*

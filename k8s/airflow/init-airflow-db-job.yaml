@@ -1,0 +1,51 @@
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-airflow-db
+  namespace: lakewatch
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init-db
+          image: postgres:17
+          command:
+            - sh
+            - -ec
+            - |
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              psql -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -v ON_ERROR_STOP=1 \
+                -v airflow_user="$AIRFLOW_DB_USER" \
+                -v airflow_password="$AIRFLOW_DB_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'airflow_user', :'airflow_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'airflow_user')
+              \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'airflow_user', :'airflow_password')
+              \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', 'airflow', :'airflow_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'airflow')
+              \gexec
+              SQL
+          envFrom:
+            - configMapRef:
+                name: lakewatch-app-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: AIRFLOW_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-db-credentials
+                  key: AIRFLOW_DB_USER
+            - name: AIRFLOW_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-db-credentials
+                  key: AIRFLOW_DB_PASSWORD

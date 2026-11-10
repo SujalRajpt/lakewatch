@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topic-init
+  namespace: lakewatch
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: kafka-topic-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-topic
+          image: apache/kafka:4.0.2
+          command:
+            - /bin/bash
+            - -ec
+          args:
+            - |
+              ready=false
+
+              for attempt in $(seq 1 30); do
+                if /opt/kafka/bin/kafka-broker-api-versions.sh \
+                    --bootstrap-server kafka:9092 >/dev/null 2>&1; then
+                  ready=true
+                  break
+                fi
+
+                echo "Kafka not ready yet (attempt ${attempt}/30)"
+                sleep 5
+              done
+
+              if [ "$ready" != "true" ]; then
+                echo "Kafka did not become ready in time"
+                exit 1
+              fi
+
+              /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server kafka:9092 \
+                --create \
+                --if-not-exists \
+                --topic sensor-readings \
+                --partitions 6 \
+                --replication-factor 1
+
+              /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server kafka:9092 \
+                --describe \
+                --topic sensor-readings
