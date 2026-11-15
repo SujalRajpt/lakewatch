@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: lakewatch-backend:dev
-          imagePullPolicy: IfNotPresent
+          image: asia-south1-docker.pkg.dev/bc-infra-6316/lakewatch-images/lakewatch-backend:v1
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000
@@ -30,9 +30,6 @@ spec:
                 secretKeyRef:
                   name: postgres-credentials
                   key: POSTGRES_PASSWORD
-          volumeMounts:
-            - name: data-lake
-              mountPath: /data-lake
           readinessProbe:
             httpGet:
               path: /health
@@ -52,7 +49,3 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-      volumes:
-        - name: data-lake
-          persistentVolumeClaim:
-            claimName: data-lake

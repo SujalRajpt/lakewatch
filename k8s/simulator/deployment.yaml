@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: simulator
-          image: lakewatch-simulator:phase5
-          imagePullPolicy: IfNotPresent
+          image: asia-south1-docker.pkg.dev/bc-infra-6316/lakewatch-images/lakewatch-simulator:v1
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 9000

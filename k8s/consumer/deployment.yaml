@@ -16,8 +16,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: consumer
-          image: lakewatch-backend:dev
-          imagePullPolicy: IfNotPresent
+          image: asia-south1-docker.pkg.dev/bc-infra-6316/lakewatch-images/lakewatch-backend:v1
+          imagePullPolicy: Always
           command: ["python", "-m", "app.workers.reading_consumer"]
           envFrom:
             - configMapRef:

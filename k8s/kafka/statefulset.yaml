@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -15,6 +16,9 @@ spec:
         app: kafka
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: kafka
           image: apache/kafka:4.0.2
@@ -26,6 +30,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: kafka-config
+          env:
+            - name: KAFKA_LOG_DIRS
+              value: /var/lib/kafka/data/kafka-logs
           readinessProbe:
             exec:
               command:
